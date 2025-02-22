@@ -1,56 +1,84 @@
 Baller Flow – Game Concept
-Game Type: Arcade-style physics game
-Platform: Browser-based (Next.js + TypeScript, using Canvas API or Phaser.js)
+Game Type: Side-scrolling physics platformer
+Platform: Browser-based (Next.js + TypeScript, using Phaser.js)
 Theme: Cosmic/Futuristic
 
 Core Concept
-Baller Flow is a high-energy, physics-based arcade game where players control a constantly bouncing energy ball inside a futuristic, neon-lit flow tunnel. The goal is to maintain momentum, avoid obstacles, and chain together high-scoring tricks to maximize the Flow Meter before time runs out.
+Baller Flow is a momentum-based side-scrolling platformer where players control an energy ball through a cosmic landscape. Progress through each level by maintaining momentum and mastering physics-based movement from left to right, with the camera following your progress.
 
 Gameplay Mechanics
 
-1. Core Movement – Controlled Chaos
-   The ball bounces automatically at a fixed rhythm.
-   Players control left and right movement (A/D or ←/→).
-   Holding a direction for too long makes the ball slide, requiring careful balance.
-2. The Flow Meter – Momentum is Key
-   Successfully chaining tricks, dodging obstacles, and collecting energy orbs builds the Flow Meter.
-   The higher the Flow Meter, the more gravity-defying moves unlock, like mid-air boosts or wall-riding.
-   If the Flow Meter depletes (due to hitting obstacles or losing speed), the game ends.
-3. Trick System – Style Over Speed
-   Tricks include:
-   Wall-riding: Hug the tunnel walls for bonus points.
-   Edge bounces: Skim along platform edges.
-   Mid-air flips: Quick flicks of movement at peak bounce height.
-   Perfect landings: Land on glowing zones for multipliers.
-   Chaining multiple tricks in succession builds combos.
+1. Core Movement – Momentum Based
+   Player-controlled horizontal movement (A/D or ←/→)
+   Camera follows player smoothly as they move right
+   Boost jumps with SPACE for vertical movement
+   Momentum builds with consistent movement
+   Wall-jumps and slopes maintain flow
+
+2. Environment Interaction
+   Platform types:
+
+   - Solid platforms for regular bouncing
+   - Boost pads that maintain momentum
+   - Sloped surfaces for rolling
+   - Wall-jump surfaces
+   - Moving platforms that require timing
+
+3. Trick System – Flow Based
+   Tricks build with momentum:
+   Wall-rides: Maintain speed along walls
+   Long jumps: Clear gaps with built-up speed
+   Chain jumps: Quick hops between platforms
+   Air tricks: Rotate while maintaining forward momentum
+   Speed runs: Fast platform clearing
+
 4. Obstacles & Power-ups
    Obstacles:
-   Gravity Shifters: Change bounce direction, forcing quick adaptation.
-   Breakable Walls: Smash through with high-speed momentum.
-   Black Holes: Suck you in unless you escape with a boost.
-   Power-ups:
-   Speed Burst: Temporary increased movement control.
-   Time Freeze: Slows down hazards for a few seconds.
-   Score Multiplier: Doubles all points for a short time.
-   Game Modes
-5. Endless Flow (Main Mode)
-   The tunnel extends infinitely, gradually increasing in difficulty.
-   Leaderboard ranks players by how long they maintain their Flow Meter before it depletes.
-6. Time Attack
-   Players have 60 seconds to score as many points as possible.
-   Performing tricks extends the timer slightly.
-7. Challenge Runs (Daily Challenges)
-   Pre-designed tunnel layouts with unique modifiers (e.g., low gravity, constant speed boosts).
-   Compete on global leaderboards for special rewards.
-   Additional Features
-   Cosmic Theme: Neon-style visuals, pulsating backgrounds that react to music.
-   Dynamic Music System: Background music intensifies as the Flow Meter builds.
-   Leaderboards: Compete for high scores across different modes.
-   Unlockable Skins: Customize the energy ball with different trail effects.
-   Why This Works for a Browser-Based Game?
-   ✅ Simple but Deep Mechanics – Easy to pick up, but mastery requires skill.
-   ✅ Physics-Based Gameplay – Works well with the Canvas API or Phaser.js.
-   ✅ Fast Load Times – Minimal assets; focus on procedural level generation.
-   ✅ Competitive & Replayable – Leaderboards and trick-based scoring add long-term appeal.
+   - Spike hazards that require precise jumping
+   - Moving barriers synchronized with platforms
+   - Speed gates that require minimum velocity
+     Power-ups:
+   - Speed boost: Temporary acceleration
+   - Double jump: Extra air control
+   - Shield: Protection from one collision
 
-Would you like me to draft an initial repo structure or game loop logic? 🚀
+Game Modes
+
+5. Level-Based Progression
+   Multiple handcrafted levels with increasing complexity
+   Each level has optional challenges and secrets
+   Progress unlocks new abilities and cosmetics
+
+6. Time Attack
+   Speedrun through completed levels
+   Multiple paths for optimization
+   Global leaderboards per level
+
+7. Challenge Mode
+   Daily/Weekly modified versions of existing levels
+   Special conditions (low gravity, extra speed, etc.)
+   Compete for high scores
+
+Additional Features
+
+- Responsive camera that follows player movement
+- Speed-based particle effects and trails
+- Parallax backgrounds that shift with movement
+- Dynamic music that builds with player momentum
+- Unlockable ball variations with unique physics properties
+
+Level Design Philosophy
+✅ Left-to-right progression with backtracking possible
+✅ Multiple paths with risk/reward tradeoffs
+✅ Momentum-based puzzles and challenges
+✅ Strategic placement of boost pads and power-ups
+✅ Hidden areas reward exploration
+
+Why This Works for a Browser-Based Game
+✅ Familiar platformer controls with unique physics twist
+✅ Precise movement and momentum mechanics
+✅ Satisfying progression system
+✅ Replayability through multiple paths and speedrunning
+✅ Perfect for short play sessions with save points
+
+Would you like me to start implementing the player-controlled scrolling mechanics? 🚀
