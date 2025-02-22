@@ -1,16 +1,21 @@
-import { AUTO, GameConfig } from '@/lib/phaser';
+import { GameConfig } from '@/lib/phaser';
 
 export const PHASER_CONFIG: GameConfig = {
-  type: AUTO,
+  type: 0,
   width: 800,
   height: 600,
   physics: {
     default: 'arcade',
     arcade: {
       gravity: { y: 600 },
-      debug: false,
+      debug: true,
     },
   },
   backgroundColor: '#000000',
-  banner: false
+  banner: false,
+  render: {
+    pixelArt: false,
+    antialias: true,
+    transparent: false
+  }
 }; 

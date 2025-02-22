@@ -7,6 +7,7 @@ import { loadPhaser, PhaserGame } from "@/lib/phaser";
 
 export default function Game() {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const gameRef = useRef<PhaserGame | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -16,8 +17,13 @@ export default function Game() {
     async function initGame() {
       if (typeof window === "undefined") return;
       
+      console.log("Loading Phaser...");
       const Phaser = await loadPhaser();
-      if (!Phaser) return;
+      if (!Phaser) {
+        setError("Failed to load Phaser");
+        return;
+      }
+      console.log("Phaser loaded successfully");
 
       const config = {
         ...PHASER_CONFIG,
@@ -26,17 +32,25 @@ export default function Game() {
         width: 800,
         height: 600,
         scale: {
-          mode: Phaser.Scale?.FIT || 'FIT',
-          autoCenter: Phaser.Scale?.CENTER_BOTH || 'CENTER_BOTH',
+          mode: Phaser.Scale.FIT,
+          autoCenter: Phaser.Scale.CENTER_BOTH,
           width: 800,
           height: 600
+        },
+        render: {
+          pixelArt: false,
+          antialias: true,
+          transparent: false
         }
       };
 
       try {
+        console.log("Initializing game with config:", config);
         gameRef.current = new Phaser.Game(config);
+        console.log("Game initialized successfully");
       } catch (error) {
         console.error("Failed to initialize Phaser game:", error);
+        setError(error instanceof Error ? error.message : "Failed to initialize game");
       }
     }
 
@@ -44,6 +58,7 @@ export default function Game() {
 
     return () => {
       if (gameRef.current) {
+        console.log("Destroying game instance");
         gameRef.current.destroy(true);
         gameRef.current = null;
       }
@@ -62,10 +77,17 @@ export default function Game() {
           </button>
         </div>
       ) : (
-        <div 
-          ref={containerRef}
-          className="rounded-lg overflow-hidden shadow-2xl border-4 border-purple-500 aspect-[4/3] w-full"
-        />
+        <>
+          <div 
+            ref={containerRef}
+            className="rounded-lg overflow-hidden shadow-2xl border-4 border-purple-500 aspect-[4/3] w-full bg-black"
+          />
+          {error && (
+            <div className="text-red-500 text-center mt-4">
+              Error: {error}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
