@@ -23,6 +23,14 @@ export default function Game() {
         ...PHASER_CONFIG,
         parent: containerRef.current || undefined,
         scene: MainScene,
+        width: 800,
+        height: 600,
+        scale: {
+          mode: Phaser.Scale?.FIT || 'FIT',
+          autoCenter: Phaser.Scale?.CENTER_BOTH || 'CENTER_BOTH',
+          width: 800,
+          height: 600
+        }
       };
 
       try {
@@ -42,23 +50,23 @@ export default function Game() {
     };
   }, [isPlaying]);
 
-  if (!isPlaying) {
-    return (
-      <div className="text-center">
-        <button
-          onClick={() => setIsPlaying(true)}
-          className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-8 rounded-full text-xl transition-colors duration-200 shadow-lg hover:shadow-xl"
-        >
-          START GAME
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div 
-      ref={containerRef}
-      className="rounded-lg overflow-hidden shadow-2xl border-4 border-purple-500"
-    />
+    <div className="w-full max-w-4xl mx-auto">
+      {!isPlaying ? (
+        <div className="text-center">
+          <button
+            onClick={() => setIsPlaying(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-8 rounded-full text-xl transition-colors duration-200 shadow-lg hover:shadow-xl"
+          >
+            START GAME
+          </button>
+        </div>
+      ) : (
+        <div 
+          ref={containerRef}
+          className="rounded-lg overflow-hidden shadow-2xl border-4 border-purple-500 aspect-[4/3] w-full"
+        />
+      )}
+    </div>
   );
 }
