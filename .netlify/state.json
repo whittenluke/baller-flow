@@ -1,0 +1,20 @@
+{
+	"geolocation": {
+		"data": {
+			"city": "Winston-Salem",
+			"country": {
+				"code": "US",
+				"name": "United States"
+			},
+			"subdivision": {
+				"code": "NC",
+				"name": "North Carolina"
+			},
+			"timezone": "America/New_York",
+			"latitude": 36.143,
+			"longitude": -80.3073,
+			"postalCode": "27106"
+		},
+		"timestamp": 1740185572259
+	}
+}
