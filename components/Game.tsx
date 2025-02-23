@@ -4,6 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { PHASER_CONFIG } from "@/lib/phaser.config";
 import { Level1 } from "@/game/scenes/Level1";
 import { Level2 } from "@/game/scenes/Level2";
+import { Level3 } from "@/game/scenes/Level3";
+import { Level4 } from "@/game/scenes/Level4";
+import { Level5 } from "@/game/scenes/Level5";
+import { Level6 } from "@/game/scenes/Level6";
+import { Level7 } from "@/game/scenes/Level7";
+import { Level8 } from "@/game/scenes/Level8";
+import { Level9 } from "@/game/scenes/Level9";
+import { Level10 } from "@/game/scenes/Level10";
 import { loadPhaser, PhaserGame } from "@/lib/phaser";
 
 export default function Game() {
@@ -29,9 +37,17 @@ export default function Game() {
       const config = {
         ...PHASER_CONFIG,
         parent: containerRef.current || undefined,
-        scene: [Level1, Level2],
+        scene: [Level1, Level2, Level3, Level4, Level5, Level6, Level7, Level8, Level9, Level10],
         width: 800,
         height: 600,
+        physics: {
+          default: 'matter',
+          matter: {
+            gravity: { y: 0.5 },
+            debug: true,
+            enableSleeping: false
+          }
+        },
         scale: {
           mode: Phaser.Scale.FIT,
           autoCenter: Phaser.Scale.CENTER_BOTH,

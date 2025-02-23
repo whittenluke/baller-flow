@@ -1,13 +1,14 @@
-import { Scene } from 'phaser';
+import Phaser, { Scene, GameObjects } from 'phaser';
+import MatterJS from 'matter-js';
 
 export class BaseLevel extends Scene {
-    protected ball!: Phaser.Physics.Arcade.Sprite;
+    protected ball!: Phaser.Physics.Matter.Sprite;
     protected cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
     protected keyA!: Phaser.Input.Keyboard.Key;
     protected keyD!: Phaser.Input.Keyboard.Key;
-    protected platforms!: Phaser.Physics.Arcade.StaticGroup;
+    protected platforms!: MatterJS.Body[];
     protected background!: Phaser.GameObjects.TileSprite;
-    protected powerups!: Phaser.Physics.Arcade.Group;
+    protected powerups!: Phaser.Physics.Matter.Sprite[];
     protected flameEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
     
     protected boostsRemaining: number = 3;
@@ -44,10 +45,56 @@ export class BaseLevel extends Scene {
         }
     }
 
+    protected setupPowerupCollection() {
+        // Matter.js collision handling
+        this.matter.world.on('collisionstart', (event: MatterJS.IEventCollision<MatterJS.Engine>) => {
+            event.pairs.forEach((pair) => {
+                const bodyA = pair.bodyA;
+                const bodyB = pair.bodyB;
+                
+                // Check if collision involves ball and powerup
+                if ((bodyA === this.ball.body && bodyB.label === 'powerup') ||
+                    (bodyB === this.ball.body && bodyA.label === 'powerup')) {
+                    const powerupBody = bodyA.label === 'powerup' ? bodyA : bodyB;
+                    const powerupSprite = this.powerups.find(p => p.body === powerupBody);
+                    
+                    if (powerupSprite && powerupSprite.active) {
+                        powerupSprite.destroy();
+                        this.hasUnlimitedBoosts = true;
+                        this.updateBoostUI();
+                        this.time.delayedCall(5000, () => {
+                            this.hasUnlimitedBoosts = false;
+                            this.updateBoostUI();
+                        });
+                    }
+                }
+
+                // Check for ground collision to reset boosts
+                if ((bodyA === this.ball.body && bodyB.label === 'platform') ||
+                    (bodyB === this.ball.body && bodyA.label === 'platform')) {
+                    this.isGrounded = true;
+                    this.boostsRemaining = 3;
+                    this.updateBoostUI();
+                }
+            });
+        });
+
+        // Handle leaving ground
+        this.matter.world.on('collisionend', (event: MatterJS.IEventCollision<MatterJS.Engine>) => {
+            event.pairs.forEach((pair) => {
+                if ((pair.bodyA === this.ball.body && pair.bodyB.label === 'platform') ||
+                    (pair.bodyB === this.ball.body && pair.bodyA.label === 'platform')) {
+                    this.isGrounded = false;
+                }
+            });
+        });
+    }
+
     protected boostBall() {
         if (!this.hasUnlimitedBoosts && this.boostsRemaining <= 0) return;
+        if (!this.ball?.body) return;
 
-        const boostPower = -300;
+        const boostPower = -10; // Adjusted for Matter.js physics
         this.ball.setVelocityY(this.ball.body.velocity.y + boostPower);
         
         if (!this.hasUnlimitedBoosts) {
@@ -81,34 +128,37 @@ export class BaseLevel extends Scene {
     }
 
     update() {
-        // Check for death
+        if (!this.ball) return;
+
         if (this.ball.y > 580 && !this.isGameOver) {
             this.isGameOver = true;
             this.showGameOverScreen();
             return;
         }
 
-        // Check for restart
         if (this.isGameOver) {
-            if (this.input.keyboard.addKey('R').isDown) {
-                if (this.gameOverText) {
-                    this.gameOverText.destroy();
+            if (this.input?.keyboard) {
+                const key = this.input.keyboard.addKey('R');
+                if (key?.isDown) {
+                    if (this.gameOverText) {
+                        this.gameOverText.destroy();
+                    }
+                    this.isGameOver = false;
+                    this.scene.restart();
+                    return;
                 }
-                this.isGameOver = false;
-                this.scene.restart();
-                return;
             }
             return;
         }
 
-        // Normal movement only if not game over
         if (!this.isGameOver) {
-            if (this.cursors.left.isDown || this.keyA.isDown) {
-                this.ball.setAccelerationX(-300);
-            } else if (this.cursors.right.isDown || this.keyD.isDown) {
-                this.ball.setAccelerationX(300);
-            } else {
-                this.ball.setAccelerationX(0);
+            if (this.input?.keyboard) {
+                const moveForce = 0.005; // Adjusted for Matter.js physics
+                if (this.cursors.left.isDown || this.keyA?.isDown) {
+                    this.ball.applyForce(new Phaser.Math.Vector2(-moveForce, 0));
+                } else if (this.cursors.right.isDown || this.keyD?.isDown) {
+                    this.ball.applyForce(new Phaser.Math.Vector2(moveForce, 0));
+                }
             }
         }
 
@@ -126,7 +176,8 @@ export class BaseLevel extends Scene {
             align: 'center'
         }).setOrigin(0.5).setScrollFactor(0);
 
+        if (!this.ball) return;
         this.ball.setVelocity(0, 0);
-        this.ball.setAcceleration(0, 0);
+        this.ball.setAngularVelocity(0);
     }
 } 

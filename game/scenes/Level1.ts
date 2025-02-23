@@ -1,31 +1,10 @@
-import { Scene } from 'phaser';
+import { BaseLevel } from './BaseLevel';
+import Phaser from 'phaser';
+import MatterJS from 'matter-js';
 
-export class Level1 extends Scene {
-    private ball!: Phaser.Physics.Arcade.Sprite;
-    private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-    private keyA!: Phaser.Input.Keyboard.Key;
-    private keyD!: Phaser.Input.Keyboard.Key;
-    private platforms!: Phaser.Physics.Arcade.StaticGroup;
-    private background!: Phaser.GameObjects.TileSprite;
-    private powerups!: Phaser.Physics.Arcade.Group;
-    private flameEmitter?: Phaser.GameObjects.Particles.ParticleEmitter;
-    
-    // Add boost tracking
-    private boostsRemaining: number = 3;
-    private hasUnlimitedBoosts: boolean = false;
-    private unlimitedBoostsTimer?: Phaser.Time.TimerEvent;
-    private isGrounded: boolean = false;
-    private lastGroundedState: boolean = false;
-    private unlimitedBoostEndTime: number = 0;
-
-    // Add new properties
-    private isGameOver: boolean = false;
-    private gameOverScreen?: Phaser.GameObjects.Container;
-    private gameOverText?: Phaser.GameObjects.Text;
-    private portal!: Phaser.GameObjects.Sprite;
-
+export class Level1 extends BaseLevel {
     constructor() {
-        super({ key: 'Level1' });
+        super('Level1');
     }
 
     preload() {
@@ -98,130 +77,166 @@ export class Level1 extends Scene {
     }
 
     create() {
-        // Set up world bounds (much wider than screen)
-        this.physics.world.setBounds(0, 0, 6400, 600);
+        // Set up world bounds
+        this.matter.world.setBounds(0, 0, 6400, 600);
 
-        // Create scrolling background
+        // Initialize arrays
+        this.platforms = [];
+        this.powerups = [];
+
+        // Create background
         this.background = this.add.tileSprite(0, 0, 800, 600, 'platform')
-          .setOrigin(0, 0)
-          .setAlpha(0.1);
-
-        // Initialize powerups group first
-        this.powerups = this.physics.add.staticGroup();
-
-        // Create platforms group
-        this.platforms = this.physics.add.staticGroup();
+            .setOrigin(0, 0)
+            .setAlpha(0.1);
 
         // Create platforms and powerups
         this.createPlatforms();
 
-        // Initialize ball with physics
-        this.ball = this.physics.add.sprite(100, 300, 'ball');
-        const physicsRadius = 15;
-        this.ball.setCircle(physicsRadius);
-        this.ball.setCollideWorldBounds(true);
-        this.ball.setBounce(0.2);
-        this.ball.setDragX(300);
-        this.ball.setMaxVelocity(400, 600);
-
-        // Turn off debug rendering
-        this.physics.world.defaults.debugShowBody = false;
-        this.physics.world.defaults.debugShowStaticBody = false;
-
-        // Set up collisions
-        this.physics.add.collider(this.ball, this.platforms, () => {
-          this.isGrounded = true;
-          this.boostsRemaining = 3;
-          this.updateBoostUI();
+        // Initialize ball with Matter.js physics
+        this.ball = this.matter.add.sprite(100, 300, 'ball', undefined, {
+            circleRadius: 15,
+            friction: 0.01,      // Lower friction for smoother rolling
+            restitution: 0,      // No bounce
+            mass: 1,
+            label: 'ball',
+            density: 0.002,
+            frictionAir: 0.001,  // Lower air friction
+            slop: 0,             // Prevent sinking into platforms
+            chamfer: { radius: 15 } // Perfect circle collision
         });
-        this.physics.add.overlap(this.ball, this.powerups, this.collectPowerup, undefined, this);
 
-        // Set up camera to follow ball
+        // Set up camera
         this.cameras.main.startFollow(this.ball, true, 0.1, 0.1);
         this.cameras.main.setBounds(0, 0, 6400, 600);
 
-        // Set up ALL keyboard controls in one place
-        this.cursors = this.input.keyboard.createCursorKeys();
-        this.keyA = this.input.keyboard.addKey('A');
-        this.keyD = this.input.keyboard.addKey('D');
-        const spaceKey = this.input.keyboard.addKey('SPACE');
-        spaceKey.on('down', this.boostBall, this);
+        // Set up controls
+        if (this.input?.keyboard) {
+            this.cursors = this.input.keyboard.createCursorKeys();
+            this.keyA = this.input.keyboard.addKey('A');
+            this.keyD = this.input.keyboard.addKey('D');
+            const spaceKey = this.input.keyboard.addKey('SPACE');
+            spaceKey?.on('down', () => this.boostBall());
+        }
 
-        // Add UI for boost count
+        // Set up powerup collection
+        this.setupPowerupCollection();
+
+        // Add UI
         this.createBoostUI();
 
-        // Add temporary test portal near start
-        this.createPortal(200, 300);
+        // Create portal to next level
+        this.createPortal(6200, 300);
     }
 
-    private createPlatforms() {
+    protected createPlatforms() {
         const SECTION_WIDTH = 800;
         const LEVEL_LENGTH = 6400;
         
         // Create alternating sections
         for (let section = 0; section < 8; section++) {
-          const sectionStart = section * SECTION_WIDTH;
-          
-          if (section % 2 === 0) {
-            this.createSolidSection(sectionStart);
-          } else {
-            this.createPlatformSection(sectionStart);
-          }
+            const sectionStart = section * SECTION_WIDTH;
+            
+            if (section % 2 === 0) {
+                this.createSolidSection(sectionStart);
+            } else {
+                this.createPlatformSection(sectionStart);
+            }
         }
     }
 
-    private createSolidSection(startX: number) {
-        // Create a series of platforms close together
+    protected createSolidSection(startX: number) {
         const platformHeight = 200;
-        for (let x = startX + 100; x < startX + 700; x += 180) {
-          this.platforms.create(x, platformHeight, 'platform');
-          this.platforms.create(x + 90, platformHeight + 150, 'platform');
+        const isFirstSection = startX === 0;
+        
+        // Create top platform except in first section
+        if (!isFirstSection) {
+            const platform = this.matter.bodies.rectangle(
+                startX + 400,
+                platformHeight,
+                700,
+                32,
+                {
+                    isStatic: true,
+                    label: 'platform',
+                    friction: 0.05,
+                    restitution: 0,
+                    chamfer: { radius: 0 }  // Sharp edges for flat surface
+                }
+            ) as MatterJS.Body;
+            this.matter.world.add(platform);
+            this.platforms.push(platform);
         }
+
+        // Always create bottom platform
+        const platform2 = this.matter.bodies.rectangle(
+            startX + 400,
+            platformHeight + 150,
+            700,
+            32,
+            {
+                isStatic: true,
+                label: 'platform',
+                friction: 0.05,
+                restitution: 0,
+                chamfer: { radius: 0 }
+            }
+        ) as MatterJS.Body;
+        this.matter.world.add(platform2);
+        this.platforms.push(platform2);
     }
 
-    private createPlatformSection(startX: number) {
+    protected createPlatformSection(startX: number) {
         // Create scattered platforms for challenging jumps
         const platformPositions = [
-          { x: startX + 200, y: 400 },
-          { x: startX + 400, y: 300 },
-          { x: startX + 600, y: 350 },
-          { x: startX + 700, y: 250 }
+            { x: startX + 200, y: 400 },
+            { x: startX + 400, y: 300 },
+            { x: startX + 600, y: 350 },
+            { x: startX + 700, y: 250 }
         ];
 
         platformPositions.forEach(pos => {
-          this.platforms.create(pos.x, pos.y, 'platform');
+            const platform = this.matter.bodies.rectangle(pos.x, pos.y, 200, 32, {
+                isStatic: true,
+                label: 'platform'
+            }) as MatterJS.Body;
+            this.matter.world.add(platform);
+            this.platforms.push(platform);
         });
 
-        // Add some powerups in this section
+        // Add powerups in this section
         this.createPowerupsInSection(startX);
     }
 
-    private createPowerupsInSection(startX: number) {
-        // Add 2-3 powerups in challenging positions
+    protected createPowerupsInSection(startX: number) {
         const powerupPositions = [
-          { x: startX + 300, y: 200 },
-          { x: startX + 500, y: 250 },
-          { x: startX + 700, y: 150 }
+            { x: startX + 400, y: 200 },
+            { x: startX + 600, y: 250 }
         ];
 
         powerupPositions.forEach(pos => {
-          const powerup = this.powerups.create(pos.x, pos.y, 'powerup');
-          
-          this.tweens.add({
-            targets: powerup,
-            y: pos.y + 20,
-            duration: 1500,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.inOut'
-          });
+            const powerup = this.matter.add.sprite(pos.x, pos.y, 'powerup', undefined, {
+                isStatic: true,
+                isSensor: true,
+                label: 'powerup'
+            });
+            
+            this.powerups.push(powerup);
+            
+            this.tweens.add({
+                targets: powerup,
+                y: pos.y - 20,
+                duration: 1500,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.inOut'
+            });
         });
     }
 
-    private createBoostUI() {
+    protected createBoostUI() {
         const boostText = this.add.text(16, 16, 'Boosts: 3', {
-          fontSize: '18px',
-          color: '#ffffff'
+            fontSize: '18px',
+            color: '#ffffff'
         });
         boostText.setScrollFactor(0);
         
@@ -229,18 +244,20 @@ export class Level1 extends Scene {
         this.updateBoostUI();
     }
 
-    private updateBoostUI() {
+    protected updateBoostUI() {
         const boostText = this.registry.get('boostText') as Phaser.GameObjects.Text;
         if (this.hasUnlimitedBoosts) {
-          boostText.setText('Boosts: ∞');
-          boostText.setColor('#ffaa00');
+            boostText.setText('Boosts: ∞');
+            boostText.setColor('#ffaa00');
         } else {
-          boostText.setText(`Boosts: ${this.boostsRemaining}`);
-          boostText.setColor('#ffffff');
+            boostText.setText(`Boosts: ${this.boostsRemaining}`);
+            boostText.setColor('#ffffff');
         }
     }
 
     update() {
+        if (!this.ball) return;
+        
         // Check for death first
         if (this.ball.y > 580 && !this.isGameOver) {
             this.isGameOver = true;
@@ -250,73 +267,113 @@ export class Level1 extends Scene {
 
         // Check for restart
         if (this.isGameOver) {
-            if (this.input.keyboard.addKey('R').isDown) {
-                // Clean up game over text
-                if (this.gameOverText) {
-                    this.gameOverText.destroy();
+            if (this.input?.keyboard) {
+                const key = this.input.keyboard.addKey('R');
+                if (key?.isDown) {
+                    if (this.gameOverText) {
+                        this.gameOverText.destroy();
+                    }
+                    this.isGameOver = false;
+                    this.scene.restart();
+                    return;
                 }
-                this.isGameOver = false;
-                this.scene.restart();
-                return;
             }
             return;
         }
 
         // Normal movement only if not game over
-        if (!this.isGameOver) {
-            if (this.cursors.left.isDown || this.keyA.isDown) {
-                this.ball.setAccelerationX(-300);
-            } else if (this.cursors.right.isDown || this.keyD.isDown) {
-                this.ball.setAccelerationX(300);
-            } else {
-                this.ball.setAccelerationX(0);
+        if (!this.isGameOver && this.ball.body) {
+            if (this.input?.keyboard) {
+                const moveForce = 0.0015;
+                const maxVelocity = 4; // Max horizontal speed
+
+                // Get current velocity
+                const currentVelocity = this.ball.body.velocity;
+
+                if (this.cursors.left.isDown || this.keyA?.isDown) {
+                    // Only apply force if we're under max speed
+                    if (currentVelocity.x > -maxVelocity) {
+                        this.ball.applyForce(new Phaser.Math.Vector2(-moveForce, 0));
+                    }
+                } else if (this.cursors.right.isDown || this.keyD?.isDown) {
+                    // Only apply force if we're under max speed
+                    if (currentVelocity.x < maxVelocity) {
+                        this.ball.applyForce(new Phaser.Math.Vector2(moveForce, 0));
+                    }
+                }
             }
         }
 
         this.updateBackground();
     }
 
-    private boostBall() {
+    protected boostBall() {
         if (!this.hasUnlimitedBoosts && this.boostsRemaining <= 0) return;
+        if (!this.ball?.body) return;
 
-        const boostPower = -300;
-        this.ball.setVelocityY(this.ball.body.velocity.y + boostPower);
+        const boostPower = -0.015; // Middle ground between rocket and tiny hop
+        this.ball.applyForce(new Phaser.Math.Vector2(0, boostPower));
         
         if (!this.hasUnlimitedBoosts) {
-          this.boostsRemaining--;
-          this.updateBoostUI();
+            this.boostsRemaining--;
+            this.updateBoostUI();
         }
 
         this.createBoostEffect();
     }
 
-    private createBoostEffect() {
+    protected createBoostEffect() {
         const particles = this.add.particles(0, 0, 'flame', {
-          speed: { min: 50, max: 100 },
-          scale: { start: 1, end: 0 },
-          alpha: { start: 0.6, end: 0 },
-          lifespan: { min: 200, max: 400 },
-          blendMode: 'ADD',
-          quantity: 1,
-          frequency: 20,
-          angle: { min: -150, max: -30 },
-          tint: [0xff7700, 0xffaa00, 0xff0000],
-          emitZone: {
-            type: 'edge',
-            source: new Phaser.Geom.Circle(0, 0, 16),
-            quantity: 32
-          }
+            speed: { min: 50, max: 100 },
+            scale: { start: 1, end: 0 },
+            alpha: { start: 0.6, end: 0 },
+            lifespan: { min: 200, max: 400 },
+            blendMode: 'ADD',
+            quantity: 1,
+            frequency: 20,
+            angle: { min: -150, max: -30 },
+            tint: [0xff7700, 0xffaa00, 0xff0000],
+            emitZone: {
+                type: 'edge',
+                source: new Phaser.Geom.Circle(0, 0, 16),
+                quantity: 32
+            }
         });
 
         particles.startFollow(this.ball);
         this.time.delayedCall(150, () => particles.destroy());
     }
 
-    private collectPowerup(ball: Phaser.Physics.Arcade.Sprite, powerup: Phaser.Physics.Arcade.Sprite) {
-        if (powerup && powerup.active) {
-          powerup.destroy();
-          this.giveUnlimitedBoosts();
-        }
+    protected setupPowerupCollection() {
+        // Matter.js collision handling
+        this.matter.world.on('collisionstart', (event: MatterJS.IEventCollision<MatterJS.Engine>) => {
+            event.pairs.forEach((pair) => {
+                const bodyA = pair.bodyA;
+                const bodyB = pair.bodyB;
+                
+                // Check if collision involves ball and powerup
+                if ((bodyA === this.ball.body && bodyB.label === 'powerup') ||
+                    (bodyB === this.ball.body && bodyA.label === 'powerup')) {
+                    const powerupBody = bodyA.label === 'powerup' ? bodyA : bodyB;
+                    const powerupSprite = this.powerups.find(p => p.body === powerupBody);
+                    
+                    if (powerupSprite && powerupSprite.active) {
+                        // Stop any tweens on the powerup before destroying it
+                        this.tweens.killTweensOf(powerupSprite);
+                        powerupSprite.destroy();
+                        this.giveUnlimitedBoosts();
+                    }
+                }
+
+                // Check for ground collision to reset boosts
+                if ((bodyA === this.ball.body && bodyB.label === 'platform') ||
+                    (bodyB === this.ball.body && bodyA.label === 'platform')) {
+                    this.isGrounded = true;
+                    this.boostsRemaining = 3;
+                    this.updateBoostUI();
+                }
+            });
+        });
     }
 
     private giveUnlimitedBoosts() {
@@ -324,38 +381,47 @@ export class Level1 extends Scene {
         this.updateBoostUI();
 
         if (this.flameEmitter) {
-          this.flameEmitter.destroy();
-          this.flameEmitter = undefined;
+            this.flameEmitter.destroy();
+            this.flameEmitter = undefined;
         }
 
         this.createFlameEffect();
 
         if (this.unlimitedBoostsTimer) {
-          this.unlimitedBoostsTimer.destroy();
+            this.unlimitedBoostsTimer.destroy();
         }
 
         const now = this.time.now;
         this.unlimitedBoostEndTime = Math.max(this.unlimitedBoostEndTime, now) + 10000;
 
         this.unlimitedBoostsTimer = this.time.delayedCall(
-          this.unlimitedBoostEndTime - now,
-          this.endUnlimitedBoosts,
-          undefined,
-          this
+            this.unlimitedBoostEndTime - now,
+            this.endUnlimitedBoosts,
+            undefined,
+            this
         );
 
-        const powerupText = this.add.text(this.ball.x, this.ball.y - 50, 'UNLIMITED BOOSTS!', {
-          fontSize: '24px',
-          color: '#ffaa00'
-        });
+        // Create text at a fixed screen position
+        const powerupText = this.add.text(
+            this.cameras.main.centerX,
+            this.cameras.main.centerY - 100,
+            'UNLIMITED BOOSTS!',
+            {
+                fontSize: '24px',
+                color: '#ffaa00'
+            }
+        ).setOrigin(0.5).setScrollFactor(0);
         
+        // Simpler animation that doesn't depend on following objects
         this.tweens.add({
-          targets: powerupText,
-          y: powerupText.y - 50,
-          alpha: 0,
-          duration: 1000,
-          ease: 'Power2',
-          onComplete: () => powerupText.destroy()
+            targets: powerupText,
+            y: powerupText.y - 50,
+            alpha: { from: 1, to: 0 },
+            duration: 1000,
+            ease: 'Power2',
+            onComplete: () => {
+                powerupText.destroy();
+            }
         });
     }
 
@@ -366,37 +432,37 @@ export class Level1 extends Scene {
         this.unlimitedBoostEndTime = 0;
         
         if (this.flameEmitter) {
-          this.flameEmitter.destroy();
-          this.flameEmitter = undefined;
+            this.flameEmitter.destroy();
+            this.flameEmitter = undefined;
         }
     }
 
     private createFlameEffect() {
         this.flameEmitter = this.add.particles(0, 0, 'flame', {
-          speed: { min: 50, max: 100 },
-          scale: { start: 1, end: 0 },
-          alpha: { start: 0.6, end: 0 },
-          lifespan: { min: 200, max: 400 },
-          blendMode: 'ADD',
-          quantity: 1,
-          frequency: 20,
-          angle: { min: -150, max: -30 },
-          tint: [0xff7700, 0xffaa00, 0xff0000],
-          emitZone: {
-            type: 'edge',
-            source: new Phaser.Geom.Circle(0, 0, 16),
-            quantity: 32
-          }
+            speed: { min: 50, max: 100 },
+            scale: { start: 1, end: 0 },
+            alpha: { start: 0.6, end: 0 },
+            lifespan: { min: 200, max: 400 },
+            blendMode: 'ADD',
+            quantity: 1,
+            frequency: 20,
+            angle: { min: -150, max: -30 },
+            tint: [0xff7700, 0xffaa00, 0xff0000],
+            emitZone: {
+                type: 'edge',
+                source: new Phaser.Geom.Circle(0, 0, 16),
+                quantity: 32
+            }
         });
 
         this.flameEmitter.startFollow(this.ball);
     }
 
-    private updateBackground() {
+    protected updateBackground() {
         this.background.tilePositionX = this.cameras.main.scrollX * 0.6;
     }
 
-    private showGameOverScreen() {
+    protected showGameOverScreen() {
         this.gameOverText = this.add.text(400, 300, 'GAME OVER\nPress R to Restart', {
             fontSize: '32px',
             color: '#ff0000',
@@ -404,36 +470,33 @@ export class Level1 extends Scene {
         }).setOrigin(0.5).setScrollFactor(0);
 
         this.ball.setVelocity(0, 0);
-        this.ball.setAcceleration(0, 0);
     }
 
-    private createPortal(x: number, y: number) {
-        // Create simple portal effect
-        const portalGraphics = this.add.graphics();
-        portalGraphics.lineStyle(2, 0x00ffff);
-        portalGraphics.fillStyle(0x00ffff, 0.3);
-        portalGraphics.beginPath();
-        portalGraphics.arc(16, 16, 16, 0, Math.PI * 2);
-        portalGraphics.strokePath();
-        portalGraphics.fillPath();
-        portalGraphics.generateTexture('portal', 32, 32);
-        portalGraphics.destroy();
-
-        // Create portal as a static physics sprite
-        this.portal = this.physics.add.staticSprite(x, y, 'portal');
+    protected createPortal(x: number, y: number) {
+        const portal = this.matter.add.sprite(x, y, 'portal', undefined, {
+            isStatic: true,
+            isSensor: true,
+            label: 'portal'
+        });
         
-        // Add glow effect
         this.tweens.add({
-            targets: this.portal,
+            targets: portal,
             alpha: 0.7,
             duration: 1500,
             yoyo: true,
             repeat: -1
         });
 
-        // Add collision check
-        this.physics.add.overlap(this.ball, this.portal, () => {
-            this.scene.start('Level2');
+        // Set up portal collision
+        this.matter.world.on('collisionstart', (event: MatterJS.IEventCollision<MatterJS.Engine>) => {
+            event.pairs.forEach((pair) => {
+                const bodyA = pair.bodyA;
+                const bodyB = pair.bodyB;
+                if ((bodyA.label === 'ball' && bodyB.label === 'portal') ||
+                    (bodyB.label === 'ball' && bodyA.label === 'portal')) {
+                    this.scene.start('Level2');
+                }
+            });
         });
     }
 } 
