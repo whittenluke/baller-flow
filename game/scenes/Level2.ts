@@ -12,7 +12,13 @@ export class Level2 extends BaseLevel {
     }
 
     protected initialize(): void {
-        // Initialize ball
+        // Create the curved ramp first
+        this.createLevelPlatforms();
+        
+        // Create powerups along the ramp
+        this.createLevelPowerups();
+
+        // Initialize ball at the start of the ramp
         this.createBall(200, 100);
 
         // Create portal
@@ -61,21 +67,43 @@ export class Level2 extends BaseLevel {
         this.matter.world.add(startPlatform);
         this.platforms.push(startPlatform);
 
-        // Create ramp points
+        // Create points for the curve
         this.rampPoints = [];
         const startX = 200;
         const startY = 150;
         
-        for (let i = 0; i <= 20; i++) {
-            const t = i / 20;
-            const x = startX + (1100 * t);
-            const y = startY + (200 * t * t);
-            this.rampPoints.push(new Phaser.Math.Vector2(x, y));
+        // Create the curve path
+        const path = new Phaser.Curves.Path(startX, startY);
+        path.quadraticBezierTo(startX + 550, startY, startX + 1100, startY + 200);
+        
+        // Sample points along the curve
+        const points = path.getPoints(20);
+        this.rampPoints = points;
+
+        // Create physics body
+        const vertices = [];
+        for (let i = 0; i < points.length - 1; i++) {
+            const current = points[i];
+            const next = points[i + 1];
+            const angle = Math.atan2(next.y - current.y, next.x - current.x);
+            
+            const segment = this.matter.bodies.rectangle(
+                (current.x + next.x) / 2,
+                (current.y + next.y) / 2,
+                Phaser.Math.Distance.Between(current.x, current.y, next.x, next.y),
+                16,
+                {
+                    ...BaseLevel.PLATFORM_CONFIG,
+                    angle: angle
+                }
+            ) as MatterJS.Body;
+            
+            this.matter.world.add(segment);
+            this.platforms.push(segment);
         }
 
-        // Draw ramp visuals
+        // Draw the visual ramp
         this.createRampVisuals();
-        this.createRampSegments();
     }
 
     private createRampVisuals(): void {
@@ -89,27 +117,6 @@ export class Level2 extends BaseLevel {
             this.rampGraphics.lineTo(point.x, point.y);
         });
         this.rampGraphics.strokePath();
-    }
-
-    private createRampSegments(): void {
-        for (let i = 0; i < this.rampPoints.length - 1; i++) {
-            const current = this.rampPoints[i];
-            const next = this.rampPoints[i + 1];
-            
-            const segment = this.matter.bodies.rectangle(
-                (current.x + next.x) / 2,
-                (current.y + next.y) / 2,
-                Phaser.Math.Distance.Between(current.x, current.y, next.x, next.y),
-                8,
-                {
-                    ...BaseLevel.PLATFORM_CONFIG,
-                    angle: Math.atan2(next.y - current.y, next.x - current.x)
-                }
-            ) as MatterJS.Body;
-            
-            this.matter.world.add(segment);
-            this.platforms.push(segment);
-        }
     }
 
     protected createPortal(x: number, y: number, nextLevel: string): Phaser.Physics.Matter.Sprite {

@@ -22,22 +22,22 @@ export abstract class BaseLevel extends Scene {
 
     protected static readonly BALL_CONFIG = {
         circleRadius: 15,
-        friction: 0.01,
-        restitution: 0,
+        friction: 0,           // No friction with surfaces
+        restitution: 0,        // No bounce
         mass: 1,
         label: 'ball',
-        density: 0.002,
-        frictionAir: 0.001,
-        slop: 0,
-        chamfer: { radius: 15 }
+        density: 0.001,        // Lower density
+        frictionAir: 0,        // No air friction
+        slop: 0,              // No overlap
+        inertia: Infinity     // Perfect rolling
     } as const;
 
     protected static readonly PLATFORM_CONFIG = {
         isStatic: true,
         label: 'platform',
-        friction: 0.05,
+        friction: 0,           // No friction on platforms
         restitution: 0,
-        chamfer: { radius: 0 }  // Sharp edges for flat surface
+        chamfer: { radius: 0 }
     } as const;
 
     protected static readonly POWERUP_CONFIG = {
@@ -53,9 +53,9 @@ export abstract class BaseLevel extends Scene {
     } as const;
 
     protected static readonly PHYSICS = {
-        moveForce: 0.0015,  // Level1's value
-        maxVelocity: 4,     // Level1's value
-        boostPower: -4      // Changed from -10 to -4 (40% of original)
+        moveForce: 0.002,      // Slightly stronger movement force
+        maxVelocity: 6,        // Higher max speed
+        boostPower: -4
     } as const;
 
     constructor(key: string) {
