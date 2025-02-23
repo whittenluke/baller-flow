@@ -8,7 +8,7 @@ export const PHASER_CONFIG: GameConfig = {
     default: 'arcade',
     arcade: {
       gravity: { y: 600 },
-      debug: true,
+      debug: false,
     },
   },
   backgroundColor: '#000000',
