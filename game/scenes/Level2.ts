@@ -1,140 +1,44 @@
 import { BaseLevel } from './BaseLevel';
 import Phaser from 'phaser';
+import MatterJS from 'matter-js';
 
 export class Level2 extends BaseLevel {
-    private curve!: Phaser.Curves.QuadraticBezier;
+    private curve!: Phaser.Curves.Path;
     private rampGraphics!: Phaser.GameObjects.Graphics;
+    private rampPoints: Phaser.Math.Vector2[] = [];
 
     constructor() {
         super('Level2');
     }
 
-    create() {
-        // Set up world bounds
-        this.physics.world.setBounds(0, 0, 6400, 600);
+    protected initialize(): void {
+        // Initialize ball
+        this.createBall(200, 100);
 
-        // Create background with unique tint
-        this.background = this.add.tileSprite(0, 0, 800, 600, 'platform')
-            .setOrigin(0, 0)
-            .setAlpha(0.1)
-            .setTint(0x00ff00);
+        // Create portal
+        this.createPortal(300, 300, 'Level3');
+    }
 
-        // Initialize groups
-        this.platforms = this.physics.add.staticGroup();
-        this.powerups = this.physics.add.staticGroup();
-
-        // Create the curved ramp
+    protected createLevelPlatforms(): void {
         this.createSmoothRamp();
-
-        // Initialize ball at the top of the ramp
-        this.ball = this.physics.add.sprite(200, 100, 'ball');
-        this.ball.setCircle(15);
-        this.ball.setCollideWorldBounds(true);
-        this.ball.setBounce(0.1);
-        this.ball.setDragX(25); // Reduced drag for better rolling
-        this.ball.setMaxVelocity(400, 600);
-
-        // Set up collisions with the ramp
-        this.physics.add.collider(this.ball, this.platforms, () => {
-            this.isGrounded = true;
-            this.boostsRemaining = 3;
-            this.updateBoostUI();
-        });
-
-        // Set up powerup collection
-        this.setupPowerupCollection();
-
-        // Set up camera
-        this.cameras.main.startFollow(this.ball, true, 0.1, 0.1);
-        this.cameras.main.setBounds(0, 0, 6400, 600);
-
-        // Set up controls
-        if (this.input?.keyboard) {
-            this.cursors = this.input.keyboard.createCursorKeys();
-            this.keyA = this.input.keyboard.addKey('A');
-            this.keyD = this.input.keyboard.addKey('D');
-            const spaceKey = this.input.keyboard.addKey('SPACE');
-            spaceKey?.on('down', () => this.boostBall());
-        }
-
-        // Add UI
-        this.createBoostUI();
-
-        // Create portal to next level
-        this.createPortal(6200, 300);
     }
 
-    private createSmoothRamp() {
-        // Create a smooth curve
-        const startPoint = new Phaser.Math.Vector2(200, 150);
-        const controlPoint = new Phaser.Math.Vector2(800, 150);
-        const endPoint = new Phaser.Math.Vector2(1300, 450);
-
-        this.curve = new Phaser.Curves.QuadraticBezier(startPoint, controlPoint, endPoint);
-
-        // Draw the curve
-        this.rampGraphics = this.add.graphics();
-        this.rampGraphics.lineStyle(16, 0x7700ff, 1);
-        this.curve.draw(this.rampGraphics);
-
-        // Get points along the curve for collision
-        const points = this.curve.getPoints(128); // More points for smoother collision
-        
-        // Create overlapping collision bodies along the curve
-        for (let i = 0; i < points.length - 1; i++) {
-            const current = points[i];
-            const next = points[i + 1];
-            
-            // Create an invisible platform that follows the curve
-            const platform = this.platforms.create(
-                current.x,
-                current.y,
-                'platform'
-            );
-            
-            // Calculate angle and distance
-            const angle = Phaser.Math.Angle.BetweenPoints(current, next);
-            const distance = Phaser.Math.Distance.BetweenPoints(current, next);
-            
-            // Make it invisible and very small
-            platform.setAlpha(0);
-            platform.setScale(distance / 100, 0.02); // Extra thin for smoother collision
-            platform.setRotation(angle);
-            
-            // Adjust the physics body
-            const body = platform.body as Phaser.Physics.Arcade.Body;
-            if (body) {
-                body.setSize(distance, 2); // Very thin collision
-                body.setOffset(0, -1);
-            }
-            
-            platform.refreshBody();
-        }
-
-        // Create starting platform
-        const startPlatform = this.platforms.create(200, 150, 'platform');
-        startPlatform.setScale(0.5, 0.2);
-        startPlatform.refreshBody();
-
-        // Add powerups along the curve
-        this.addPowerups(points);
-    }
-
-    private addPowerups(points: Phaser.Math.Vector2[]) {
-        // Add powerups at strategic points
-        const powerupIndices = [32, 64, 96]; // Adjusted for 128 points
-        
+    protected createLevelPowerups(): void {
+        const powerupIndices = [32, 64, 96];
         powerupIndices.forEach(index => {
-            if (points[index]) {
-                const powerup = this.powerups.create(
-                    points[index].x,
-                    points[index].y - 30,
-                    'powerup'
+            if (this.rampPoints[index]) {
+                const powerup = this.matter.add.sprite(
+                    this.rampPoints[index].x,
+                    this.rampPoints[index].y - 30,
+                    'powerup',
+                    undefined,
+                    BaseLevel.POWERUP_CONFIG
                 );
+                this.powerups.push(powerup);
                 
                 this.tweens.add({
                     targets: powerup,
-                    y: points[index].y - 50,
+                    y: this.rampPoints[index].y - 50,
                     duration: 1500,
                     yoyo: true,
                     repeat: -1,
@@ -144,8 +48,72 @@ export class Level2 extends BaseLevel {
         });
     }
 
-    private createPortal(x: number, y: number) {
-        const portal = this.physics.add.staticSprite(x, y, 'portal');
+    private createSmoothRamp(): void {
+        // Create flat starting platform
+        const startPlatform = this.matter.bodies.rectangle(
+            100, 150, 200, 16,
+            {
+                ...BaseLevel.PLATFORM_CONFIG,
+                isStatic: true,
+                label: 'platform'
+            }
+        ) as MatterJS.Body;
+        this.matter.world.add(startPlatform);
+        this.platforms.push(startPlatform);
+
+        // Create ramp points
+        this.rampPoints = [];
+        const startX = 200;
+        const startY = 150;
+        
+        for (let i = 0; i <= 20; i++) {
+            const t = i / 20;
+            const x = startX + (1100 * t);
+            const y = startY + (200 * t * t);
+            this.rampPoints.push(new Phaser.Math.Vector2(x, y));
+        }
+
+        // Draw ramp visuals
+        this.createRampVisuals();
+        this.createRampSegments();
+    }
+
+    private createRampVisuals(): void {
+        this.rampGraphics = this.add.graphics();
+        this.rampGraphics.lineStyle(16, 0x7700ff, 1);
+        this.rampGraphics.lineTo(0, this.rampPoints[0].y);
+        this.rampGraphics.lineTo(this.rampPoints[0].x, this.rampPoints[0].y);
+        this.rampGraphics.beginPath();
+        this.rampGraphics.moveTo(this.rampPoints[0].x, this.rampPoints[0].y);
+        this.rampPoints.forEach(point => {
+            this.rampGraphics.lineTo(point.x, point.y);
+        });
+        this.rampGraphics.strokePath();
+    }
+
+    private createRampSegments(): void {
+        for (let i = 0; i < this.rampPoints.length - 1; i++) {
+            const current = this.rampPoints[i];
+            const next = this.rampPoints[i + 1];
+            
+            const segment = this.matter.bodies.rectangle(
+                (current.x + next.x) / 2,
+                (current.y + next.y) / 2,
+                Phaser.Math.Distance.Between(current.x, current.y, next.x, next.y),
+                8,
+                {
+                    ...BaseLevel.PLATFORM_CONFIG,
+                    angle: Math.atan2(next.y - current.y, next.x - current.x)
+                }
+            ) as MatterJS.Body;
+            
+            this.matter.world.add(segment);
+            this.platforms.push(segment);
+        }
+    }
+
+    protected createPortal(x: number, y: number, nextLevel: string): Phaser.Physics.Matter.Sprite {
+        const portal = this.matter.add.sprite(x, y, 'portal', undefined, BaseLevel.PORTAL_CONFIG) as Phaser.Physics.Matter.Sprite;
         
         this.tweens.add({
             targets: portal,
@@ -155,8 +123,18 @@ export class Level2 extends BaseLevel {
             repeat: -1
         });
 
-        this.physics.add.overlap(this.ball, portal, () => {
-            this.scene.start('Level3');
+        // Set up portal collision
+        this.matter.world.on('collisionstart', (event: MatterJS.IEventCollision<MatterJS.Engine>) => {
+            event.pairs.forEach((pair) => {
+                const bodyA = pair.bodyA;
+                const bodyB = pair.bodyB;
+                if ((bodyA.label === 'ball' && bodyB.label === 'portal') ||
+                    (bodyB.label === 'ball' && bodyA.label === 'portal')) {
+                    this.scene.start(nextLevel);
+                }
+            });
         });
+
+        return portal;
     }
 } 

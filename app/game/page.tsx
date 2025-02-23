@@ -12,7 +12,7 @@ export default function GamePage() {
       <div className="max-w-6xl mx-auto flex flex-col gap-8">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-white mb-2 tracking-wider">BALLER FLOW</h1>
-          <p className="text-purple-200">Chain tricks, dodge obstacles, and keep your flow meter maxed out!</p>
+          <p className="text-purple-200">Find your perfect flow</p>
         </div>
         
         <Game />
