@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PHASER_CONFIG } from "@/lib/phaser.config";
-import { MainScene } from "@/game/scenes/MainScene";
+import { Level1 } from "@/game/scenes/Level1";
+import { Level2 } from "@/game/scenes/Level2";
 import { loadPhaser, PhaserGame } from "@/lib/phaser";
 
 export default function Game() {
@@ -28,7 +29,7 @@ export default function Game() {
       const config = {
         ...PHASER_CONFIG,
         parent: containerRef.current || undefined,
-        scene: MainScene,
+        scene: [Level1, Level2],
         width: 800,
         height: 600,
         scale: {
