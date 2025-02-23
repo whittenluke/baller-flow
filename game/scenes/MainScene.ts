@@ -3,6 +3,8 @@ import { Scene } from 'phaser';
 export class MainScene extends Scene {
   private ball!: Phaser.Physics.Arcade.Sprite;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private keyA!: Phaser.Input.Keyboard.Key;
+  private keyD!: Phaser.Input.Keyboard.Key;
   private platforms!: Phaser.Physics.Arcade.StaticGroup;
   private background!: Phaser.GameObjects.TileSprite;
   private powerups!: Phaser.Physics.Arcade.Group;
@@ -19,6 +21,7 @@ export class MainScene extends Scene {
   // Add new properties
   private isGameOver: boolean = false;
   private gameOverScreen?: Phaser.GameObjects.Container;
+  private gameOverText?: Phaser.GameObjects.Text;  // Add this property to track the text
 
   constructor() {
     super({ key: 'MainScene' });
@@ -125,22 +128,31 @@ export class MainScene extends Scene {
     this.physics.world.defaults.debugShowStaticBody = false;
 
     // Set up collisions
-    this.physics.add.collider(this.ball, this.platforms, this.handleGroundCollision, undefined, this);
+    this.physics.add.collider(this.ball, this.platforms, () => {
+      this.isGrounded = true;
+      this.boostsRemaining = 3;
+      this.updateBoostUI();
+    });
     this.physics.add.overlap(this.ball, this.powerups, this.collectPowerup, undefined, this);
 
     // Set up camera to follow ball
     this.cameras.main.startFollow(this.ball, true, 0.1, 0.1);
     this.cameras.main.setBounds(0, 0, 6400, 600);
 
-    // Initialize controls
+    // Set up ALL keyboard controls in one place
     this.cursors = this.input.keyboard.createCursorKeys();
-
-    // Add space key for boost
+    this.keyA = this.input.keyboard.addKey('A');
+    this.keyD = this.input.keyboard.addKey('D');
     const spaceKey = this.input.keyboard.addKey('SPACE');
     spaceKey.on('down', this.boostBall, this);
 
     // Add UI for boost count
     this.createBoostUI();
+  }
+
+  private initializeControls() {
+    // Initialize cursor keys
+    this.cursors = this.input.keyboard.createCursorKeys();
   }
 
   private createPlatforms() {
@@ -240,42 +252,39 @@ export class MainScene extends Scene {
   }
 
   update() {
+    // Check for death first
+    if (this.ball.y > 580 && !this.isGameOver) {
+        this.isGameOver = true;
+        this.showGameOverScreen();
+        return;
+    }
+
+    // Check for restart
     if (this.isGameOver) {
-      // Only check for restart input when game is over
-      if (this.input.keyboard.addKey('R').isDown) {
-        this.scene.restart();
-      }
-      return;
+        if (this.input.keyboard.addKey('R').isDown) {
+            // Clean up game over text
+            if (this.gameOverText) {
+                this.gameOverText.destroy();
+            }
+            this.isGameOver = false;
+            this.scene.restart();
+            return;
+        }
+        return;
     }
 
-    // Check if ball fell below screen
-    if (this.ball.y > 580) {
-      this.handleGameOver();
-      return;
+    // Normal movement only if not game over
+    if (!this.isGameOver) {
+        if (this.cursors.left.isDown || this.keyA.isDown) {
+            this.ball.setAccelerationX(-300);
+        } else if (this.cursors.right.isDown || this.keyD.isDown) {
+            this.ball.setAccelerationX(300);
+        } else {
+            this.ball.setAccelerationX(0);
+        }
     }
 
-    this.handleInput();
     this.updateBackground();
-    
-    // Check if we've left the ground
-    this.lastGroundedState = this.isGrounded;
-    this.isGrounded = this.ball.body.touching.down;
-    
-    if (this.lastGroundedState && !this.isGrounded) {
-      this.boostsRemaining = 3;
-      this.updateBoostUI();
-    }
-  }
-
-  private handleInput() {
-    // Horizontal movement with momentum
-    if (this.cursors.left.isDown || this.input.keyboard.addKey('A').isDown) {
-      this.ball.setAccelerationX(-300);
-    } else if (this.cursors.right.isDown || this.input.keyboard.addKey('D').isDown) {
-      this.ball.setAccelerationX(300);
-    } else {
-      this.ball.setAccelerationX(0);
-    }
   }
 
   private boostBall() {
@@ -392,53 +401,16 @@ export class MainScene extends Scene {
     this.background.tilePositionX = this.cameras.main.scrollX * 0.6;
   }
 
-  private handleGameOver() {
-    this.isGameOver = true;
-    
-    // Create game over screen container
-    this.gameOverScreen = this.add.container(400, 300);
-    
-    // Add semi-transparent background
-    const bg = this.add.rectangle(0, 0, 400, 200, 0x000000, 0.8);
-    this.gameOverScreen.add(bg);
-    
-    // Add game over text
-    const gameOverText = this.add.text(0, -40, 'GAME OVER', {
-      fontSize: '32px',
-      color: '#ff0000',
-      align: 'center'
-    }).setOrigin(0.5);
-    
-    // Add restart instruction
-    const restartText = this.add.text(0, 20, 'Press R to Restart', {
-      fontSize: '24px',
-      color: '#ffffff',
-      align: 'center'
-    }).setOrigin(0.5);
-    
-    this.gameOverScreen.add(gameOverText);
-    this.gameOverScreen.add(restartText);
-    
-    // Fix container to camera
-    this.gameOverScreen.setScrollFactor(0);
-    
-    // Add fade in effect
-    this.gameOverScreen.setAlpha(0);
-    this.tweens.add({
-      targets: this.gameOverScreen,
-      alpha: 1,
-      duration: 500,
-      ease: 'Power2'
-    });
+  private showGameOverScreen() {
+    // Store reference to game over text
+    this.gameOverText = this.add.text(400, 300, 'GAME OVER\nPress R to Restart', {
+        fontSize: '32px',
+        color: '#ff0000',
+        align: 'center'
+    }).setOrigin(0.5).setScrollFactor(0);
 
-    // Stop ball movement
+    // Stop ball
     this.ball.setVelocity(0, 0);
     this.ball.setAcceleration(0, 0);
-    
-    // Remove any active flame effects
-    if (this.flameEmitter) {
-      this.flameEmitter.destroy();
-      this.flameEmitter = undefined;
-    }
   }
 }
