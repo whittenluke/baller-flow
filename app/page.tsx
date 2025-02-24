@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Rocket } from "lucide-react";
+import { LevelEditorModal } from "@/components/LevelEditorModal";
 
 export default function Home() {
   return (
@@ -12,12 +13,15 @@ export default function Home() {
         <p className="text-xl text-purple-200 mb-12 max-w-2xl mx-auto">
           A high-energy, physics-based arcade game where momentum is everything. Chain tricks, dodge obstacles, and keep your flow meter maxed out!
         </p>
-        <Link 
-          href="/game" 
-          className="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-8 rounded-full text-xl transition-colors duration-200 shadow-lg hover:shadow-xl"
-        >
-          PLAY NOW
-        </Link>
+        <div className="flex gap-4 justify-center">
+          <Link 
+            href="/game" 
+            className="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-8 rounded-full text-xl transition-colors duration-200 shadow-lg hover:shadow-xl"
+          >
+            PLAY NOW
+          </Link>
+          <LevelEditorModal />
+        </div>
       </div>
       
       <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl w-full">

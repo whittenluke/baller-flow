@@ -1,5 +1,6 @@
 import Phaser, { Scene, GameObjects } from 'phaser';
 import MatterJS from 'matter-js';
+import { LevelEditorTools } from '../editor/LevelEditorTools';
 
 export abstract class BaseLevel extends Scene {
     protected ball!: Phaser.Physics.Matter.Sprite;
